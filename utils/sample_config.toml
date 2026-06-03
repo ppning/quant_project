@@ -3,10 +3,10 @@ name = "akshare_multi_factor_demo"
 
 [universe]
 # 000300 = 沪深300, 000905 = 中证500
-index_symbols = ["000300", "000905"]
+index_symbols = ["000300"]
 # 可额外追加手工股票池；留空表示只使用指数成分股。
 symbols = []
-# 0 表示使用全部成分股；调试时可改成 50/100 加快首次下载。
+# 0 表示使用全部成分股；当前默认取沪深300全量股票池。
 max_symbols = 0
 
 [data]
@@ -22,7 +22,7 @@ provider = "auto"
 
 [strategy]
 rebalance = "W-FRI"
-top_n = 3
+top_n = 10
 min_history_days = 80
 
 [factors]

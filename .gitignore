@@ -4,7 +4,7 @@ __pycache__/
 .venv/
 venv/
 
-data/raw/*.csv
+data/raw/**/*.csv
 data/processed/*.csv
 reports/*.csv
 reports/*.txt

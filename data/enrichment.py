@@ -235,8 +235,7 @@ def enrich_realtime_features(
     board = load_board_heat(cache_dir, refresh)
     latest = latest.merge(spot, on="symbol", how="left").merge(board, on="symbol", how="left")
 
-    sort_column = "xgb_limit_up_prob" if "xgb_limit_up_prob" in latest.columns else "first_board_score"
-    tail_symbols = latest.sort_values(sort_column, ascending=False)["symbol"].head(tail_limit).tolist()
+    tail_symbols = latest.sort_values("first_board_score", ascending=False)["symbol"].head(tail_limit).tolist()
     tail = load_tail_signals(tail_symbols, latest_date, cache_dir, refresh, workers=workers)
     latest = latest.merge(tail, on="symbol", how="left")
 

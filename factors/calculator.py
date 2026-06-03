@@ -57,6 +57,21 @@ def _add_symbol_factors(group: pd.DataFrame) -> pd.DataFrame:
     group["rsi_6"] = 100 - (100 / (1 + rs_6))
     group["intraday_strength"] = (close - group["low"]) / price_range
     group["close_to_high"] = close / group["high"] - 1
+    group["healthy_near_limit_touch"] = (
+        group["near_limit_touch"]
+        & ~group["is_limit_up"]
+        & (group["close_to_high"] >= -0.02)
+        & (group["volume_ratio_5"] <= 2.5)
+    )
+    group["failed_near_limit_touch"] = (
+        group["near_limit_touch"]
+        & ~group["is_limit_up"]
+        & ((group["close_to_high"] < -0.04) | (group["volume_ratio_5"] > 3.0))
+    )
+    group["huge_volume_release"] = (
+        (group["volume_ratio_5"] > 3.0)
+        & ((group["close_to_high"] < -0.03) | (group["pct_change"] < 1.5))
+    )
     rolling_low_60 = close.rolling(60).min()
     rolling_high_60 = close.rolling(60).max()
     group["low_position_60"] = (close - rolling_low_60) / (rolling_high_60 - rolling_low_60).replace(0, pd.NA)
@@ -64,6 +79,7 @@ def _add_symbol_factors(group: pd.DataFrame) -> pd.DataFrame:
     rolling_high_252 = close.rolling(252).max()
     group["low_position_252"] = (close - rolling_low_252) / (rolling_high_252 - rolling_low_252).replace(0, pd.NA)
     group["distance_high_252"] = close / rolling_high_252 - 1
+    group["high_position_risk"] = (group["low_position_252"] > 0.8) | (group["distance_high_252"] > -0.05)
     group["platform_high_20_prev"] = group["high"].rolling(20).max().shift(1)
     group["distance_platform_high_20"] = close / group["platform_high_20_prev"] - 1
     group["near_platform_breakout"] = group["distance_platform_high_20"].between(-0.03, 0.05, inclusive="both")

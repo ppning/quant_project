@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 from html import escape
 from pathlib import Path
 
@@ -10,7 +11,6 @@ from data.loader import load_universe_history
 from data.enrichment import enrich_realtime_features
 from data.universe import resolve_universe
 from factors.calculator import add_factors
-from models.xgb_limit import train_predict_xgb_limit_up
 from strategy.first_board import (
     add_realtime_score,
     add_first_board_score,
@@ -42,9 +42,10 @@ def format_report_frame(frame: pd.DataFrame) -> pd.DataFrame:
         "name": "名称",
         "close": "收盘价",
         "pct_change": "当日涨幅%",
-        "xgb_limit_up_prob": "XGBoost涨停概率",
         "realtime_score": "实时增强分",
         "first_board_score": "首板分",
+        "first_board_candidate": "严格候选",
+        "first_board_watchlist": "观察池",
         "next_pct_change": "次日涨幅%",
         "next_limit_up": "次日涨停",
         "turnover_rate": "换手率%",
@@ -65,6 +66,7 @@ def format_report_frame(frame: pd.DataFrame) -> pd.DataFrame:
         "tail_amount_ratio": "尾盘成交占比",
         "tail_return": "14:30后涨幅",
         "tail_close_to_high": "尾盘收盘距高点",
+        "effective_float_market_cap_yi": "有效流通市值(亿)",
         "volume_ratio_5_display": "量能/5日均量",
         "volume_ratio_20_display": "量能/20日均量",
         "limit_up_count_20d": "近20日涨停数",
@@ -76,9 +78,14 @@ def format_report_frame(frame: pd.DataFrame) -> pd.DataFrame:
         "distance_platform_high_20": "距20日平台上轨",
         "near_platform_breakout": "接近平台突破",
         "near_limit_touch": "盘中接近涨停",
+        "healthy_near_limit_touch": "健康近板",
         "broken_limit_touch": "盘中炸板/近板失败",
+        "failed_near_limit_touch": "失败近板",
+        "huge_volume_release": "巨量兑现",
+        "high_position_risk": "高位透支",
         "limit_up_distance": "收盘距涨停价",
         "low_position_60": "60日低位分位",
+        "close_to_high": "收盘距日高",
         "intraday_strength": "日内强势度",
         "close_above_ma20": "站上20日线",
         "ma5_slope": "5日线斜率",
@@ -88,7 +95,20 @@ def format_report_frame(frame: pd.DataFrame) -> pd.DataFrame:
     }
     display = display.rename(columns={key: value for key, value in rename_columns.items() if key in display.columns})
 
-    bool_columns = ["次日涨停", "站上20日线", "均线排列", "接近平台突破", "盘中接近涨停", "盘中炸板/近板失败"]
+    bool_columns = [
+        "次日涨停",
+        "严格候选",
+        "观察池",
+        "站上20日线",
+        "均线排列",
+        "接近平台突破",
+        "盘中接近涨停",
+        "健康近板",
+        "盘中炸板/近板失败",
+        "失败近板",
+        "巨量兑现",
+        "高位透支",
+    ]
     for column in bool_columns:
         if column in display.columns:
             display[column] = display[column].map({True: "是", False: "否"}).fillna("")
@@ -96,6 +116,7 @@ def format_report_frame(frame: pd.DataFrame) -> pd.DataFrame:
     numeric_columns = display.select_dtypes(include="number").columns
     for column in numeric_columns:
         display[column] = display[column].map(lambda value: "" if pd.isna(value) else round(float(value), 4))
+    display = display.where(pd.notna(display), "")
     return display
 
 
@@ -127,9 +148,7 @@ def write_html_report(
     output_path: Path,
     latest_candidates: pd.DataFrame,
     historical_picks: pd.DataFrame,
-    validation_predictions: pd.DataFrame,
-    feature_importance: pd.DataFrame,
-    metrics: dict[str, float],
+    metrics: dict[str, object],
 ) -> None:
     metric_cards = "\n".join(
         f"<div class=\"metric\"><span>{escape(str(name))}</span><strong>{metric_value_html(value)}</strong></div>"
@@ -248,8 +267,6 @@ def write_html_report(
     <p class="subtitle">低位启动首板模型：T 日收盘后筛选，观察 T+1 是否首次涨停。当前版本只生成 HTML 报告。</p>
     <div class="metrics">{metric_cards}</div>
     {table_html("最新首板候选", latest_candidates)}
-    {table_html("XGBoost 验证集 Top N 预测", validation_predictions, max_rows=200)}
-    {table_html("XGBoost 特征重要性", feature_importance)}
     {table_html("历史首板信号回看", historical_picks, max_rows=300)}
   </main>
 </body>
@@ -263,12 +280,28 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", default="utils/sample_config.toml", help="Path to the TOML config file.")
     parser.add_argument("--refresh", action="store_true", help="Refresh AkShare data instead of using CSV cache.")
     parser.add_argument("--max-symbols", type=int, default=None, help="Override universe.max_symbols for quick tests.")
+    parser.add_argument(
+        "--trade-date",
+        default=None,
+        help="Use this T date as the prediction base date, e.g. 20260603, 2026-06-03, or 2026.06.03.",
+    )
     return parser
+
+
+def normalize_trade_date(value: str | None) -> str:
+    if not value:
+        return ""
+    text = value.strip().replace("-", "").replace(".", "").replace("/", "")
+    try:
+        return datetime.strptime(text, "%Y%m%d").strftime("%Y%m%d")
+    except ValueError as exc:
+        raise SystemExit(f"Invalid --trade-date: {value}. Expected YYYYMMDD or YYYY-MM-DD.") from exc
 
 
 def main() -> None:
     args = build_parser().parse_args()
     config = load_config(args.config)
+    end_date = normalize_trade_date(args.trade_date) or config.data.end_date
     config.output.report_dir.mkdir(parents=True, exist_ok=True)
     symbols, names = resolve_universe(
         manual_symbols=config.universe.symbols,
@@ -282,7 +315,7 @@ def main() -> None:
     history = load_universe_history(
         symbols=symbols,
         start_date=config.data.start_date,
-        end_date=config.data.end_date,
+        end_date=end_date,
         adjust=config.data.adjust,
         cache_dir=config.data.cache_dir,
         symbol_names=names,
@@ -292,12 +325,6 @@ def main() -> None:
     )
     factored = add_factors(history)
     scored = add_first_board_score(factored)
-    xgb_result = train_predict_xgb_limit_up(
-        scored,
-        config.strategy.top_n,
-        config.strategy.min_history_days,
-    )
-    scored = xgb_result.scored
     scored = enrich_realtime_features(
         scored,
         cache_dir=config.data.cache_dir,
@@ -318,22 +345,25 @@ def main() -> None:
     )
     latest_candidates = place_name_after_symbol(latest_candidates)
     historical_picks = place_name_after_symbol(historical_picks)
-    validation_predictions = place_name_after_symbol(xgb_result.validation_predictions)
-    metrics = {
-        **xgb_result.metrics,
-        **summarize_first_board_performance(historical_picks),
-    }
+    metrics = summarize_first_board_performance(historical_picks)
+    prediction_date = ""
+    if not latest_candidates.empty and "date" in latest_candidates.columns:
+        prediction_date = pd.to_datetime(latest_candidates["date"].max()).strftime("%Y-%m-%d")
+    if prediction_date:
+        metrics = {"预测基准日": prediction_date, "预测目标": "T+1 涨停"} | metrics
     write_html_report(
         config.output.report_dir / "index.html",
         latest_candidates,
         historical_picks,
-        validation_predictions,
-        xgb_result.feature_importance,
         metrics,
     )
 
     print(f"Universe symbols: {len(symbols)}")
     print(f"Loaded rows: {len(history)}")
+    if end_date:
+        print(f"Prediction base date requested: {end_date}")
+    if prediction_date:
+        print(f"Prediction base date used: {prediction_date}")
     print(f"Latest first-board candidates: {len(latest_candidates)}")
     print(f"Historical first-board picks: {len(historical_picks)}")
     print(f"Reports: {config.output.report_dir}")
