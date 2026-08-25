@@ -9,6 +9,10 @@ DISPLAY_COLUMNS = [
     "name",
     "close",
     "pct_change",
+    "trade_tier",
+    "buy_signal_score",
+    "buy_core_checks",
+    "buy_risk_veto",
     "realtime_score",
     "first_board_score",
     "first_board_candidate",
@@ -210,6 +214,107 @@ def add_realtime_score(scored: pd.DataFrame) -> pd.DataFrame:
     output["realtime_score"] -= tail_fade.astype(float) * 15
 
     output["realtime_candidate"] = output["first_board_candidate"] & ~tail_fade.fillna(False)
+    return add_trade_tiers(output)
+
+
+def add_trade_tiers(scored: pd.DataFrame) -> pd.DataFrame:
+    output = scored.copy()
+    market_cap = _numeric_column(output, "effective_float_market_cap_yi")
+    market_cap = market_cap.fillna(_numeric_column(output, "float_market_cap_est_yi"))
+    turnover_source = _numeric_column(output, "spot_turnover_rate")
+    turnover_source = turnover_source.fillna(_numeric_column(output, "turnover_rate"))
+
+    not_limit_up = output["pct_change"] < output["limit_up_threshold"]
+    price_ready = output["pct_change"].between(2, output["limit_up_threshold"] - 1, inclusive="both")
+    volume_ready = output["volume_ratio_5_display"].between(1.5, 3.0, inclusive="both")
+    volume_active = output["volume_ratio_20_display"].between(1.2, 3.5, inclusive="both")
+    turnover_ready = _turnover_ready_by_cap(turnover_source, market_cap)
+    turnover_missing = turnover_source.isna()
+    close_ready = (output["intraday_strength"] >= 0.7) & (_numeric_column(output, "close_to_high") >= -0.02)
+    platform_or_low = _bool_column(output, "near_platform_breakout") | output["low_position_252"].between(
+        0.05,
+        0.65,
+        inclusive="both",
+    )
+    market_ready = (
+        _numeric_column(output, "market_up_ratio").fillna(0.5).ge(0.35)
+        & _numeric_column(output, "market_broken_limit_rate").fillna(0).le(0.7)
+    )
+    no_recent_limit = output["limit_up_count_20d"].fillna(0).eq(0)
+    tail_available = _numeric_column(output, "tail_amount_ratio").notna()
+    tail_confirm = (
+        (_numeric_column(output, "tail_amount_ratio") >= 0.25)
+        & (_numeric_column(output, "tail_return") > 0)
+        & (_numeric_column(output, "tail_close_to_high") >= -0.01)
+    )
+    board_confirm = (
+        (_numeric_column(output, "industry_heat").fillna(0) >= 1.5)
+        | (_numeric_column(output, "concept_heat").fillna(0) >= 1.5)
+    )
+    risk_veto = (
+        ~not_limit_up
+        | _bool_column(output, "failed_near_limit_touch")
+        | _bool_column(output, "huge_volume_release")
+        | _bool_column(output, "high_position_risk")
+        | (
+            _bool_column(output, "broken_limit_touch")
+            & (_numeric_column(output, "close_to_high") < -0.02)
+        )
+        | (
+            tail_available
+            & (
+                (_numeric_column(output, "tail_return") < -0.005)
+                | (_numeric_column(output, "tail_close_to_high") < -0.03)
+            )
+        )
+    )
+
+    core_checks = (
+        price_ready.astype(int)
+        + volume_ready.astype(int)
+        + (turnover_ready | turnover_missing).astype(int)
+        + close_ready.astype(int)
+        + platform_or_low.astype(int)
+        + market_ready.astype(int)
+        + no_recent_limit.astype(int)
+    )
+
+    score = pd.Series(0.0, index=output.index)
+    score += price_ready.astype(float) * 15
+    score += volume_ready.astype(float) * 20
+    score += volume_active.astype(float) * 10
+    score += turnover_ready.astype(float) * 15
+    score += (turnover_missing & volume_ready).astype(float) * 5
+    score += close_ready.astype(float) * 20
+    score += platform_or_low.astype(float) * 15
+    score += market_ready.astype(float) * 15
+    score += no_recent_limit.astype(float) * 10
+    score += _bool_column(output, "healthy_near_limit_touch").astype(float) * 10
+    score += tail_confirm.astype(float) * 10
+    score += board_confirm.astype(float) * 10
+    score += (_numeric_column(output, "realtime_score").fillna(0) >= 110).astype(float) * 10
+    score -= risk_veto.astype(float) * 35
+
+    output["buy_signal_score"] = score
+    output["buy_core_checks"] = core_checks
+    output["buy_risk_veto"] = risk_veto
+
+    trial = (
+        ~risk_veto
+        & (core_checks >= 6)
+        & (score >= 95)
+        & (_bool_column(output, "first_board_candidate") | _bool_column(output, "first_board_watchlist"))
+    )
+    watch = (
+        ~risk_veto
+        & ~trial
+        & (core_checks >= 4)
+        & (score >= 65)
+        & (_bool_column(output, "first_board_watchlist") | price_ready | volume_ready | close_ready)
+    )
+    output["trade_tier"] = "放弃"
+    output.loc[watch, "trade_tier"] = "观察"
+    output.loc[trial, "trade_tier"] = "试仓"
     return output
 
 
@@ -233,8 +338,23 @@ def latest_first_board_candidates(scored: pd.DataFrame, top_n: int, min_history_
     else:
         ranked = hard_candidates
     columns = [column for column in DISPLAY_COLUMNS if column in ranked.columns]
-    sort_column = "realtime_score" if "realtime_score" in ranked.columns else "first_board_score"
+    sort_column = "buy_signal_score" if "buy_signal_score" in ranked.columns else "realtime_score" if "realtime_score" in ranked.columns else "first_board_score"
     return ranked.sort_values(sort_column, ascending=False).head(top_n)[columns]
+
+
+def latest_trade_tier_candidates(scored: pd.DataFrame, tier: str, top_n: int, min_history_days: int) -> pd.DataFrame:
+    eligible = scored.copy()
+    eligible["history_days"] = eligible.groupby("symbol").cumcount() + 1
+    eligible = eligible[eligible["history_days"] >= min_history_days]
+    if eligible.empty or "trade_tier" not in eligible.columns:
+        return eligible.iloc[0:0]
+
+    latest_date = eligible["date"].max()
+    latest = eligible[(eligible["date"] == latest_date) & (eligible["trade_tier"] == tier)].copy()
+    if latest.empty:
+        return latest
+    columns = [column for column in DISPLAY_COLUMNS if column in latest.columns]
+    return latest.sort_values("buy_signal_score", ascending=False).head(top_n)[columns]
 
 
 def historical_first_board_picks(scored: pd.DataFrame, top_n: int, min_history_days: int) -> pd.DataFrame:
@@ -269,4 +389,32 @@ def summarize_first_board_performance(picks: pd.DataFrame) -> dict[str, float]:
         "命中率": hit_count / len(picks),
         "平均次日收益": float(picks["next_pct_change"].mean() / 100),
         "平均首板分": float(picks["first_board_score"].mean()),
+    }
+
+
+def summarize_tier_performance(scored: pd.DataFrame, tier: str, top_n: int, min_history_days: int) -> dict[str, float]:
+    if "trade_tier" not in scored.columns:
+        return {
+            f"{tier}历史信号数": 0.0,
+            f"{tier}次日涨停数": 0.0,
+            f"{tier}命中率": 0.0,
+        }
+
+    eligible = scored.dropna(subset=["next_pct_change"]).copy()
+    eligible["history_days"] = eligible.groupby("symbol").cumcount() + 1
+    eligible = eligible[(eligible["history_days"] >= min_history_days) & (eligible["trade_tier"] == tier)]
+    if eligible.empty:
+        return {
+            f"{tier}历史信号数": 0.0,
+            f"{tier}次日涨停数": 0.0,
+            f"{tier}命中率": 0.0,
+        }
+
+    eligible["rank"] = eligible.groupby("date")["buy_signal_score"].rank(ascending=False, method="first")
+    picks = eligible[eligible["rank"] <= top_n]
+    hit_count = float(picks["next_limit_up"].fillna(False).sum())
+    return {
+        f"{tier}历史信号数": float(len(picks)),
+        f"{tier}次日涨停数": hit_count,
+        f"{tier}命中率": hit_count / len(picks) if len(picks) else 0.0,
     }

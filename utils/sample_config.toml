@@ -3,11 +3,15 @@ name = "akshare_multi_factor_demo"
 
 [universe]
 # 000300 = 沪深300, 000905 = 中证500
-index_symbols = ["000300"]
+index_symbols = ["000300", "000905"]
 # 可额外追加手工股票池；留空表示只使用指数成分股。
 symbols = []
-# 0 表示使用全部成分股；当前默认取沪深300全量股票池。
-max_symbols = 0
+# index: 直接使用指数成分股；active_boards: 从指数成分股中筛选活跃/资金流板块内股票。
+mode = "active_boards"
+# 资金流/热度靠前的行业和概念板块数量。
+board_top_n = 10
+# 当前默认从沪深300 + 中证500中筛选活跃板块内前100只。
+max_symbols = 100
 
 [data]
 start_date = "20220101"

@@ -1,0 +1,122 @@
+{
+  "mx-macro-data" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "Global Macro Database Assistant",
+    "slug" : "mx-macro-data",
+    "version" : "1.0.14",
+    "publishedAt" : 1773828110847,
+    "isLinkApplied" : true
+  },
+  "mx-finance-search" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "Financial Search Engine",
+    "slug" : "mx-finance-search",
+    "version" : "1.0.11",
+    "publishedAt" : 1773828110847,
+    "isLinkApplied" : true
+  },
+  "mx-finance-data" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "All-Market Financial Data Hub",
+    "slug" : "mx-finance-data",
+    "version" : "1.0.14",
+    "publishedAt" : 1773828110847,
+    "isLinkApplied" : true
+  },
+  "mx-stocks-screener" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "Intelligent Stocks Screener",
+    "slug" : "mx-stocks-screener",
+    "version" : "1.0.17",
+    "publishedAt" : 1773828110847,
+    "isLinkApplied" : true
+  },
+  "industry-research-report" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "Industry Research Agent",
+    "slug" : "industry-research-report",
+    "version" : "1.0.5",
+    "publishedAt" : 1773660152105,
+    "isLinkApplied" : true
+  },
+  "industry-stock-tracker" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "Stock/Industry Tracker",
+    "slug" : "industry-stock-tracker",
+    "version" : "1.0.4",
+    "publishedAt" : 1773660152105,
+    "isLinkApplied" : true
+  },
+  "initiation-of-coverage-or-deep-dive" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "Initiation of Coverage Agent",
+    "slug" : "initiation-of-coverage-or-deep-dive",
+    "version" : "1.0.6",
+    "publishedAt" : 1773660152105,
+    "isLinkApplied" : true
+  },
+  "stock-earnings-review" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "Earnings Review Agent",
+    "slug" : "stock-earnings-review",
+    "version" : "1.0.5",
+    "publishedAt" : 1773660152105,
+    "isLinkApplied" : true
+  },
+  "mx-financial-assistant" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "mx-financial-assistant",
+    "slug" : "mx-financial-assistant",
+    "version" : "1.0.4",
+    "publishedAt" : 1773660152105,
+    "isLinkApplied" : true
+  },
+  "fund-diagnosis" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "fund-diagnosis",
+    "slug" : "fund-diagnosis",
+    "version" : "1.0.2",
+    "publishedAt" : 1773660152105,
+    "isLinkApplied" : true
+  },
+  "stock-diagnosis" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "stock-diagnosis",
+    "slug" : "stock-diagnosis",
+    "version" : "1.0.3",
+    "publishedAt" : 1773660152105,
+    "isLinkApplied" : true
+  },
+  "topic-research-report" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "topic-research-report",
+    "slug" : "topic-research-report",
+    "version" : "1.0.2",
+    "publishedAt" : 1773660152105,
+    "isLinkApplied" : true
+  },
+  "stock-market-hotspot-discovery" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "stock-market-hotspot-discovery",
+    "slug" : "stock-market-hotspot-discovery",
+    "version" : "1.0.2",
+    "publishedAt" : 1773660152105,
+    "isLinkApplied" : true
+  },
+  "comparable-company-analysis" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "comparable-company-analysis",
+    "slug" : "comparable-company-analysis",
+    "version" : "1.0.2",
+    "publishedAt" : 1773660152105,
+    "isLinkApplied" : true
+  },
+  "mx-personal-kb-search" : {
+    "ownerId" : "kn7b4ptpdag877t9kmq8axyja182taab",
+    "display" : "mx-personal-kb-search",
+    "slug" : "mx-personal-kb-search",
+    "version" : "1.0.0",
+    "publishedAt" : 1773660152105,
+    "isLinkApplied" : true
+  }
+}

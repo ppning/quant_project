@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import tomllib
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10 and earlier
+    import tomli as tomllib
 
 
 @dataclass(frozen=True)
@@ -11,6 +15,8 @@ class UniverseConfig:
     names: dict[str, str]
     index_symbols: list[str]
     max_symbols: int
+    mode: str
+    board_top_n: int
 
 
 @dataclass(frozen=True)
@@ -64,6 +70,8 @@ def load_config(path: str | Path) -> AppConfig:
             names=names,
             index_symbols=index_symbols,
             max_symbols=int(universe_raw.get("max_symbols", 0)),
+            mode=str(universe_raw.get("mode", "index")),
+            board_top_n=int(universe_raw.get("board_top_n", 10)),
         ),
         data=DataConfig(
             start_date=str(data_raw["start_date"]),
