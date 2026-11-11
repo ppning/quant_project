@@ -77,6 +77,29 @@ provider = "tencent"
 
 - `index.html`: 首板涨停预测报告
 
+## Docker 部署
+
+项目根目录已提供 `Dockerfile` 和 `compose.yaml`。使用 Docker Compose 构建并启动：
+
+```bash
+docker compose up -d --build
+```
+
+启动后访问 <http://127.0.0.1:8765>。查看状态和日志：
+
+```bash
+docker compose ps
+docker compose logs -f
+```
+
+停止服务：
+
+```bash
+docker compose down
+```
+
+`data/raw`、`data/processed` 和 `reports` 会映射到宿主机目录，重新创建容器时不会丢失缓存与报告。
+
 ## 首板特征
 
 - `pct_change > 5`: 当日已有明显资金异动。

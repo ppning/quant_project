@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -995,8 +996,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    server = ThreadingHTTPServer(("127.0.0.1", 8765), Handler)
-    print("Report server: http://127.0.0.1:8765")
+    host = os.environ.get("APP_HOST", "127.0.0.1")
+    port = int(os.environ.get("APP_PORT", "8765"))
+    server = ThreadingHTTPServer((host, port), Handler)
+    print(f"Report server: http://{host}:{port}", flush=True)
     server.serve_forever()
 
 

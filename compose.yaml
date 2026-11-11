@@ -1,0 +1,15 @@
+services:
+  quant-workbench:
+    build:
+      context: .
+    container_name: quant-workbench
+    ports:
+      - "8765:8765"
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8765
+    volumes:
+      - ./data/raw:/app/data/raw
+      - ./data/processed:/app/data/processed
+      - ./reports:/app/reports
+    restart: unless-stopped
